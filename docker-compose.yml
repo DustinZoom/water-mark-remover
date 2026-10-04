@@ -1,0 +1,35 @@
+name: paraphraser
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      retries: 20
+
+  # One-shot: downloads the model into the shared volume, then exits.
+  model-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "${PARAPHRASE_MODEL:-qwen2.5:1.5b-instruct}"]
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      PARAPHRASE_MODEL: ${PARAPHRASE_MODEL:-qwen2.5:1.5b-instruct}
+    depends_on:
+      model-pull:
+        condition: service_completed_successfully
+
+volumes:
+  ollama:
